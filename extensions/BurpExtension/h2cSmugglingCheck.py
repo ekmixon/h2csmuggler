@@ -32,15 +32,14 @@ class BurpExtender(IBurpExtender, IScannerCheck):
 
         # Replace headers in original request
         headers = requestInfo.getHeaders()
-        newHeaders = []
-        for header in headers:
-            if header.startswith("Connection") or header.startswith("Upgrade"):
-                pass
-            else:
-                newHeaders.append(header)
-        newHeaders.append("Upgrade: h2c")
-        newHeaders.append("HTTP2-Settings: AAMAAABkAARAAAAAAAIAAAAA")
+        newHeaders = [
+            header
+            for header in headers
+            if not header.startswith("Connection")
+            and not header.startswith("Upgrade")
+        ]
 
+        newHeaders.extend(("Upgrade: h2c", "HTTP2-Settings: AAMAAABkAARAAAAAAAIAAAAA"))
         # Build Requests
         connStr = "Connection: Upgrade, HTTP2-Settings"
         h2cRequestOne = self._helpers.buildHttpMessage(newHeaders + [connStr],
@@ -94,16 +93,10 @@ class BurpExtender(IBurpExtender, IScannerCheck):
                 (use h2cSmuggler's --upgrade-only option)""",
                 confidence))
 
-        if len(ret) == 0:
-            return None
-
-        return ret
+        return ret or None
 
     def consolidateDuplicateIssues(self, existingIssue, newIssue):
-        if existingIssue.getUrl() == newIssue.getUrl():
-            return -1
-
-        return 0
+        return -1 if existingIssue.getUrl() == newIssue.getUrl() else 0
 
 
 class CustomScanIssue (IScanIssue):

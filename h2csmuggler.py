@@ -26,12 +26,12 @@ def handle_events(events, isVerbose):
             raise RuntimeError("stream reset: %d" % event.error_code)
         else:
             if isVerbose:
-                print("[INFO] " + str(event))
+                print(f"[INFO] {str(event)}")
 
 
 def handle_response(response_headers, stream_id):
     for name, value in response_headers:
-        print("%s: %s" % (name.decode('utf-8'), value.decode('utf-8')))
+        print(f"{name.decode('utf-8')}: {value.decode('utf-8')}")
 
     print("")
 
@@ -58,10 +58,7 @@ def send_initial_request(connection, proxy_url, settings):
     global UPGRADE_ONLY
     path = proxy_url.path or "/"
 
-    addl_conn_str = b", HTTP2-Settings"
-    if UPGRADE_ONLY:
-        addl_conn_str = b""
-
+    addl_conn_str = b"" if UPGRADE_ONLY else b", HTTP2-Settings"
     request = (
         b"GET " + path.encode('utf-8') + b" HTTP/1.1\r\n" +
         b"Host: " + proxy_url.hostname.encode('utf-8') + b"\r\n" +
@@ -89,7 +86,7 @@ def get_upgrade_response(connection, proxy_url):
     # An upgrade response begins HTTP/1.1 101 Switching Protocols.
     split_headers = headers.split()
     if split_headers[1] != b'101':
-        print("[INFO] Failed to upgrade: " + proxy_url.geturl())
+        print(f"[INFO] Failed to upgrade: {proxy_url.geturl()}")
         return None, False
 
     return rest, True
@@ -176,7 +173,7 @@ def main(args):
     The client upgrade flow.
     """
     if not args.proxy.startswith("http"):
-        print("[ERROR]: invalid protocol: " + args.proxy, file=sys.stderr)
+        print(f"[ERROR]: invalid protocol: {args.proxy}", file=sys.stderr)
         sys.exit(1)
 
     proxy_url = urlparse(args.proxy)
@@ -200,7 +197,7 @@ def main(args):
 
     print("[INFO] h2c stream established successfully.")
     if args.test:
-        print("[INFO] Success! " + args.proxy + " can be used for tunneling")
+        print(f"[INFO] Success! {args.proxy} can be used for tunneling")
         sys.exit(0)
 
     # Step 5: Immediately send the pending HTTP/2 data.
@@ -226,10 +223,8 @@ def main(args):
 
     for url in urls:
         path = url.path or "/"
-        query = url.query
-
-        if query:
-            path = path + "?" + query
+        if query := url.query:
+            path = f"{path}?{query}"
 
         smuggled_request_headers = [
             (':method', args.request),
@@ -240,11 +235,12 @@ def main(args):
 
         # Add user-defined headers
         if args.header:
-            for header in args.header:
-                smuggled_request_headers.append(tuple(header.split(": ")))
+            smuggled_request_headers.extend(
+                tuple(header.split(": ")) for header in args.header
+            )
 
         # Send request
-        print("[INFO] Requesting - " + path)
+        print(f"[INFO] Requesting - {path}")
         sendSmuggledRequest(h2_connection,
                             connection,
                             smuggled_request_headers,
@@ -262,7 +258,7 @@ def scan(line):
     try:
         proxy_url = urlparse(line)
         if not line.startswith("http"):
-            print("[ERROR]: skipping invalid protocol: " + line)
+            print(f"[ERROR]: skipping invalid protocol: {line}")
             return
 
         connection = establish_tcp_connection(proxy_url)
@@ -276,10 +272,10 @@ def scan(line):
         if not success:
             return
 
-        print("[INFO] Success! " + line + " can be used for tunneling")
+        print(f"[INFO] Success! {line} can be used for tunneling")
         sys.stdout.flush()
     except Exception as e:
-        print("[ERROR] " + e.__str__() + ": " + line, file=sys.stderr)
+        print(f"[ERROR] {e.__str__()}: {line}", file=sys.stderr)
         sys.stderr.flush()
     finally:
         if connection:
@@ -364,11 +360,11 @@ def init():
         sys.exit(1)
 
     if args.url and not urlparse(args.url).scheme:
-        print("Please specify scheme (e.g., http[s]://) for: " + args.url)
+        print(f"Please specify scheme (e.g., http[s]://) for: {args.url}")
         sys.exit(1)
 
     if not urlparse(args.proxy).scheme:
-        print("Please specify scheme (e.g., http[s]://) for: " + args.proxy)
+        print(f"Please specify scheme (e.g., http[s]://) for: {args.proxy}")
         sys.exit(1)
 
     main(args)
